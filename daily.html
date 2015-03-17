@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<link href="http://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.2.0/css/bootstrap.min.css" rel="stylesheet">
+	<link href="http://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.2.0/css/font-awesome.min.css" rel="stylesheet">
+
+	<script src="http://cdnjs.cloudflare.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
+	<script src="http://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.2.0/js/bootstrap.min.js"></script>
+	<script src="http://cdnjs.cloudflare.com/ajax/libs/moment.js/2.7.0/moment.min.js"></script>
+	<script type="text/javascript" src="https://www.google.com/jsapi"></script>
+</head>
+<body>
+	<!--div style="margin-bottom: 2em;">&nbsp;</div-->
+	<div class="col-sm-6 col-md-3">
+		<div class="well" style="width: 15em; margin: auto; margin-top: 2em;">
+			<span class="h3 text-nowrap"><small>Batteriladdning</small></span>
+			<div class="h1 text-center text-nowrap" id="bsoc"></div>		
+		</div>
+	</div>
+	<div class="col-sm-6 col-md-3">
+		<div class="well" style="width: 15em; margin: auto; margin-top: 2em;">
+			<span class="h3 text-nowrap"><small>Effekt från solpanel</small></span>
+			<div class="h1 text-center text-nowrap" id="pvp"></div>
+		</div>
+	</div>
+	<div class="col-sm-6 col-md-3">
+		<div class="well" style="width: 15em; margin: auto; margin-top: 2em;">
+			<span class="h3 text-nowrap"><small>Förbrukning</small></span>
+			<div class="h1 text-center text-nowrap" id="lp"></div>
+		</div>
+	</div>
+	<div class="col-sm-6 col-md-3">
+		<div class="well" style="width: 15em; margin: auto; margin-top: 2em;">
+			<span class="h3 text-nowrap"><small>Total effekt idag</small></span>
+			<div class="h1 text-center text-nowrap" id="ecd"></div>
+		</div>
+	</div>
+	<!--div class="col-md-12 center-block" id="chart" style="text-align: center; margin-top: 4em;">
+		<div class="btn-group" role="group">
+			<button type="button" class="btn btn-default btn-day" id="btn-day">Dag</button>
+			<button type="button" class="btn btn-default btn-week">Vecka</button>
+			<button type="button" class="btn btn-default btn-month">Månad</button>
+			<button type="button" class="btn btn-default btn-year">År</button>
+		</div>
+	</div>
+	<div class="col-md-12" style="margin-top: 1em; text-align: center;">
+		<div id="chart"></div>
+		<div id="loading"><i class="fa fa-spinner fa-spin fa-3x" style="margin-top: 2em;"></i></div>
+	</div-->
+
+	<script>
+		function init() {
+		    /*$("#btn-day").click(function() {
+		    	loadChart("day");
+		    });
+
+		    $("#btn-day").click();*/
+		    loadCurrent();
+		    window.setInterval(loadCurrent, 5000);
+		}
+
+		function loadCurrent() {
+			$.get("http://localhost:8080/now").
+				done(function(data){
+					var status = JSON.parse(data);
+					$("#bsoc").html(status.bsoc + "%");
+					$("#pvp").html(status.pvp + " W");
+					$("#lp").html(status.lp + " W");
+					$("#ecd").html(status.ecd + " kWh");
+				}).
+				fail(function() {
+					console.log("Failed");
+				});
+		}
+
+		// chart is either day, week, month or year
+		function loadChart(chart) {
+			$("#loading").show();
+	    	$("#btn").removeClass("active");
+	    	$("#btn-" + chart).addClass("active");
+		}
+
+
+		google.load('visualization', '1', {packages: ['corechart']});
+
+	    function loadData() {
+	    	$.get("http://localhost:8080/day/pv/power").
+	    		done(function(data) {
+					var aDate;
+					parsedData = JSON.parse(data, function(k,v){
+						var reISO = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:Z|(\+|-)([\d|:]*))?$/;
+				        if (typeof v === 'string') {
+				            var a = reISO.exec(v);
+				            if (a) {
+				            	aDate = new Date(v);
+				            	return aDate;
+				            }
+				        }
+				        return v;
+					});
+					drawChart(parsedData, aDate);
+	    		}).
+	    		fail(function(){
+	    			console.log("failed");
+	    		});
+	    }
+
+		function drawChart(input, aDate) {
+			var data = new google.visualization.DataTable(input);
+
+			var formatter = new google.visualization.DateFormat({pattern: 'HH:mm'});
+			formatter.format(data, 0);
+			
+			var chart = new google.visualization.LineChart(document.getElementById('chart'));
+
+			var options = {
+				subtitle: "Idag",
+				curveType: 'function',
+				height: 400,
+				legend: {
+					position: "bottom"
+				},
+				hAxis: {
+					title: "",
+					format: "HH:mm",
+					viewWindow: {
+						min: moment().subtract(1, 'days').toDate(),
+						max: moment().toDate()
+					},
+					gridlines: {
+						count: 12,
+						units: {
+							days: {format: ["MMM dd"]},
+							hours: {format: ["HH:mm", "ha"]},
+						}
+					},
+				},
+				vAxis: {
+					title: "Watt",
+					viewWindow: {
+						min: 0,
+						max: 80
+					},
+					gridlines: {
+						count: 10,
+					}
+				}
+			};
+			chart.draw(data, options);
+	    }
+
+    $(function() {
+		google.setOnLoadCallback(init);
+    });
+  </script>
+</body>
+</html>
