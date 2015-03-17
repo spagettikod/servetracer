@@ -20,7 +20,7 @@ const (
 	DailyPVPowerURI = "/day/pv/power"
 	LatestURI       = "/now"
 
-	SelectSQL string = `SELECT ts, array_voltage, array_current, array_power, battery_voltage, battery_current, battery_soc, battery_temp, battery_max_volt, battery_min_volt, device_temp, load_voltage, load_current, load_power, load, consumed_day, consumed_month, consumed_year, consumed_total, generated_day, generated_month, generated_year, generated_total FROM log `
+	SelectSQL string = `SELECT timestamp, array_voltage, array_current, array_power, battery_voltage, battery_current, battery_soc, battery_temp, battery_max_volt, battery_min_volt, device_temp, load_voltage, load_current, load_power, load, consumed_day, consumed_month, consumed_year, consumed_total, generated_day, generated_month, generated_year, generated_total FROM log `
 	LatestSQL string = SelectSQL + `WHERE timestamp ORDER BY timestamp DESC LIMIT 1;`
 
 	IndexPage string = `
