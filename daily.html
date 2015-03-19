@@ -10,16 +10,15 @@
 	<script type="text/javascript" src="https://www.google.com/jsapi"></script>
 </head>
 <body>
-	<!--div style="margin-bottom: 2em;">&nbsp;</div-->
 	<div class="col-sm-6 col-md-3">
 		<div class="well" style="width: 15em; margin: auto; margin-top: 2em;">
-			<span class="h3 text-nowrap"><small>Batteriladdning</small></span>
+			<span class="h3 text-nowrap"><small>Batteri</small></span>
 			<div class="h1 text-center text-nowrap" id="bsoc"></div>		
 		</div>
 	</div>
 	<div class="col-sm-6 col-md-3">
 		<div class="well" style="width: 15em; margin: auto; margin-top: 2em;">
-			<span class="h3 text-nowrap"><small>Effekt från solpanel</small></span>
+			<span class="h3 text-nowrap"><small>Solpanel</small></span>
 			<div class="h1 text-center text-nowrap" id="pvp"></div>
 		</div>
 	</div>
@@ -35,77 +34,268 @@
 			<div class="h1 text-center text-nowrap" id="ecd"></div>
 		</div>
 	</div>
-	<!--div class="col-md-12 center-block" id="chart" style="text-align: center; margin-top: 4em;">
+	<div class="center-block" style="text-align: center; width: 100%; margin-top: 4em; display: inline-block;">
 		<div class="btn-group" role="group">
-			<button type="button" class="btn btn-default btn-day" id="btn-day">Dag</button>
+			<button type="button" class="btn btn-default btn-day">Dag</button>
 			<button type="button" class="btn btn-default btn-week">Vecka</button>
 			<button type="button" class="btn btn-default btn-month">Månad</button>
 			<button type="button" class="btn btn-default btn-year">År</button>
 		</div>
 	</div>
-	<div class="col-md-12" style="margin-top: 1em; text-align: center;">
-		<div id="chart"></div>
-		<div id="loading"><i class="fa fa-spinner fa-spin fa-3x" style="margin-top: 2em;"></i></div>
-	</div-->
+	<div style="display: inline-block; width: 100%;">
+		<div style="margin-top: 1em; text-align: center;">
+			<div id="chart"></div>
+			<!--div id="loading"><i class="fa fa-spinner fa-spin fa-3x" style="margin-top: 2em;"></i></div-->
+		</div>
+	</div>
 
 	<script>
+		google.load('visualization', '1', {packages: ['corechart']});
+
+		var host = "http://localhost:8080"
+		//var host = ""
+		var dailyData;
+		var weeklyData;
+		var monthlyData;
+		var annualData;
+
+		var dailyChartOptions = {
+			subtitle: "Idag",
+			curveType: 'function',
+			height: 400,
+			legend: {
+				position: "bottom"
+			},
+			hAxis: {
+				title: "",
+				format: "HH:mm",
+				viewWindow: {
+					min: moment().subtract(1, 'days').toDate(),
+					max: moment().toDate()
+				},
+				gridlines: {
+					count: 12
+				},
+			},
+			vAxis: {
+				title: "Watt",
+				viewWindow: {
+					min: 0,
+					max: 80
+				},
+				gridlines: {
+					count: 10,
+				}
+			}
+		};
+
+		var weeklyChartOptions = {
+			subtitle: "Vecka",
+			curveType: 'function',
+			height: 400,
+			legend: {
+				position: "bottom"
+			},
+			hAxis: {
+				title: "",
+				format: "cccc",
+				viewWindow: {
+					min: moment().subtract(7, 'days').toDate(),
+					max: moment().toDate()
+				},
+				gridlines: {
+					count: 7
+				},
+			},
+			vAxis: {
+				title: "Watt",
+				viewWindow: {
+					min: 0,
+					max: 80
+				},
+				gridlines: {
+					count: 10,
+				}
+			}
+		};
+
+		var monthlyChartOptions = {
+			subtitle: "Månad",
+			curveType: 'function',
+			height: 400,
+			legend: {
+				position: "bottom"
+			},
+			hAxis: {
+				title: "",
+				format: "d",
+				viewWindow: {
+					min: moment().subtract(30, 'days').toDate(),
+					max: moment().toDate()
+				},
+				gridlines: {
+					count: 30
+				},
+			},
+			vAxis: {
+				title: "Watt",
+				viewWindow: {
+					min: 0,
+					max: 80
+				},
+				gridlines: {
+					count: 10,
+				}
+			}
+		};
+
+		var annualChartOptions = {
+			subtitle: "År",
+			curveType: 'function',
+			height: 400,
+			legend: {
+				position: "bottom"
+			},
+			hAxis: {
+				title: "",
+				format: "MMMM",
+				viewWindow: {
+					min: moment().subtract(365, 'days').toDate(),
+					max: moment().toDate()
+				},
+				gridlines: {
+					count: 12
+				},
+			},
+			vAxis: {
+				title: "Watt",
+				viewWindow: {
+					min: 0,
+					max: 80
+				},
+				gridlines: {
+					count: 10,
+				}
+			}
+		};
+
 		function init() {
-		    /*$("#btn-day").click(function() {
-		    	loadChart("day");
+			$(".btn-day").addClass("active");
+			loadDaily();
+			loadWeekly();
+			loadMonthly();
+			loadAnnual();
+			loadCurrent();
+		    $("button.btn-day").click(function(event) {
+		    	$(".btn").removeClass("active");
+		    	$(".btn-day").addClass("active");
+		    	drawChart(dailyData, dailyChartOptions);
+		    });
+		    $("button.btn-week").click(function() {
+		    	$(".btn").removeClass("active");
+		    	$(".btn-week").addClass("active");
+		    	drawChart(weeklyData, weeklyChartOptions);
+		    });
+		    $("button.btn-month").click(function() {
+		    	$(".btn").removeClass("active");
+		    	$(".btn-month").addClass("active");
+		    	drawChart(monthlyData, monthlyChartOptions);
+		    });
+		    $("button.btn-year").click(function() {
+		    	$(".btn").removeClass("active");
+		    	$(".btn-year").addClass("active");
+		    	drawChart(annualData, annualChartOptions);
 		    });
 
-		    $("#btn-day").click();*/
-		    loadCurrent();
 		    window.setInterval(loadCurrent, 5000);
+		    window.setInterval(loadDaily, 600000);
+		    window.setInterval(loadMonthly, 21600000);
+		    window.setInterval(loadAnnual, 86400000);
 		}
 
 		function loadCurrent() {
-			$.get("http://localhost:8080/now").
+			$.get(host + "/now").
 				done(function(data){
 					var status = JSON.parse(data);
 					$("#bsoc").html(status.bsoc + "%");
-					$("#pvp").html(status.pvp + " W");
-					$("#lp").html(status.lp + " W");
-					$("#ecd").html(status.ecd + " kWh");
+					$("#pvp").html(status.pvp.toFixed(2) + " W");
+					$("#lp").html(status.lp.toFixed(2) + " W");
+					$("#ecd").html(status.ecd.toFixed(2) + " kWh");
 				}).
 				fail(function() {
 					console.log("Failed");
 				});
 		}
 
-		// chart is either day, week, month or year
-		function loadChart(chart) {
-			$("#loading").show();
-	    	$("#btn").removeClass("active");
-	    	$("#btn-" + chart).addClass("active");
+		function process(data) {
+			var aDate;
+			return JSON.parse(data, function(k,v){
+				var reISO = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:Z|(\+|-)([\d|:]*))?$/;
+		        if (typeof v === 'string') {
+		            var a = reISO.exec(v);
+		            if (a) {
+		            	aDate = new Date(v);
+		            	return aDate;
+		            }
+		        }
+		        return v;
+			});
 		}
 
-
-		google.load('visualization', '1', {packages: ['corechart']});
-
-	    function loadData() {
-	    	$.get("http://localhost:8080/day/pv/power").
+	    function loadDaily() {
+	    	$.get(host + "/day").
 	    		done(function(data) {
-					var aDate;
-					parsedData = JSON.parse(data, function(k,v){
-						var reISO = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:Z|(\+|-)([\d|:]*))?$/;
-				        if (typeof v === 'string') {
-				            var a = reISO.exec(v);
-				            if (a) {
-				            	aDate = new Date(v);
-				            	return aDate;
-				            }
-				        }
-				        return v;
-					});
-					drawChart(parsedData, aDate);
+	    			dailyData = process(data);
+	    			if($(".btn-day").hasClass("active")) {
+	    				drawChart(dailyData, dailyChartOptions);
+	    			}
 	    		}).
 	    		fail(function(){
-	    			console.log("failed");
+	    			console.log("daily failed");
 	    		});
 	    }
 
-		function drawChart(input, aDate) {
+	    function loadWeekly() {
+	    	$.get(host + "/week").
+	    		done(function(data) {
+	    			weeklyData = process(data);
+	    			if($(".btn-week").hasClass("active")) {
+	    				drawChart(weeklyData, weeklyChartOptions);
+	    			}
+	    		}).
+	    		fail(function(){
+	    			console.log("weekly failed");
+	    		});
+	    }
+
+	    function loadMonthly() {
+	    	$.get(host + "/month").
+	    		done(function(data) {
+	    			monthlyData = process(data);
+	    			if($(".btn-month").hasClass("active")) {
+	    				drawChart(monthlyData, monthlyChartOptions);
+	    			}
+	    		}).
+	    		fail(function(){
+	    			console.log("monthly failed");
+	    		});
+	    }
+
+	    function loadAnnual() {
+	    	$.get(host + "/annual").
+	    		done(function(data) {
+	    			annualData = process(data);
+	    			if($(".btn-annual").hasClass("active")) {
+	    				drawChart(annualData, annualChartOptions);
+	    			}
+	    		}).
+	    		fail(function(){
+	    			console.log("annual failed");
+	    		});
+	    }
+
+		function drawChart(input, options) {
+			$("#chart").html('<i class="fa fa-spinner fa-spin fa-3x" style="margin-top: 2em;"></i>');
 			var data = new google.visualization.DataTable(input);
 
 			var formatter = new google.visualization.DateFormat({pattern: 'HH:mm'});
@@ -113,39 +303,7 @@
 			
 			var chart = new google.visualization.LineChart(document.getElementById('chart'));
 
-			var options = {
-				subtitle: "Idag",
-				curveType: 'function',
-				height: 400,
-				legend: {
-					position: "bottom"
-				},
-				hAxis: {
-					title: "",
-					format: "HH:mm",
-					viewWindow: {
-						min: moment().subtract(1, 'days').toDate(),
-						max: moment().toDate()
-					},
-					gridlines: {
-						count: 12,
-						units: {
-							days: {format: ["MMM dd"]},
-							hours: {format: ["HH:mm", "ha"]},
-						}
-					},
-				},
-				vAxis: {
-					title: "Watt",
-					viewWindow: {
-						min: 0,
-						max: 80
-					},
-					gridlines: {
-						count: 10,
-					}
-				}
-			};
+
 			chart.draw(data, options);
 	    }
 
