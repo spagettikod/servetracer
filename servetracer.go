@@ -391,7 +391,7 @@ type GoogleChartsDataTable struct {
 }
 
 func init() {
-	flag.StringVar(&port, "p", "", "HTTP service port")
+	flag.StringVar(&port, "p", "8080", "HTTP service port")
 	flag.StringVar(&dbFile, "db", "", "path and filename of SQLite database")
 }
 
@@ -420,79 +420,6 @@ func uriDate(uriRoot string, req *http.Request) (t time.Time, err error) {
 	}
 	return
 }
-
-/*
-func DayPowerHandler(w http.ResponseWriter, req *http.Request) {
-	logAccess(req)
-	start := time.Now()
-	//t, err := uriDate(DailyPVPowerURI, req)
-	//if err != nil {
-	//	http.Error(w, err.Error(), http.StatusInternalServerError)
-	//	log.Println(err)
-	//	return
-	//}
-	t := time.Now().UTC()
-
-	var tps []TracerPowerStatus
-	var b []byte
-	err := fetch(t.Add((time.Hour*24)*-1), t, &tps)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		log.Println(err)
-		return
-	}
-
-	log.Printf("query: %v", time.Since(start).String())
-	start = time.Now()
-
-	// Limit to one every 5 minute average
-	//var pvTotal float32
-	var j int64
-	var tmp []TracerPowerStatus
-	for _, tp := range tps {
-		//timeTotal += tp.Timestamp.Unix()
-		//pvTotal += tp.ArrayPower
-		if j == 120 || len(tps)-int(j) == 0 {
-			//avgTime := time.Unix(timeTotal/j, 0)
-			//tmp = append(tmp, TracerPowerStatus{ArrayPower: pvTotal / float32(j), Timestamp: avgTime})
-			tp.Timestamp = time.Unix(tp.Timestamp.Unix(), 0)
-			tmp = append(tmp, tp)
-			j = 0
-			//timeTotal = 0
-			//pvTotal = 0
-		}
-		j++
-	}
-
-	log.Printf("limit: %v", time.Since(start).String())
-	start = time.Now()
-
-	var table GoogleChartsDataTable
-	table.Cols = []GoogleChartsCol{GoogleChartsCol{Type: "datetime"}, GoogleChartsCol{Type: "number", Label: "Solpanel"}, GoogleChartsCol{Type: "number", Label: "Förbrukning"}}
-
-	for _, tp := range tmp {
-		var row GoogleChartsRow
-		row.Cells = append(row.Cells, GoogleChartsCell{Value: tp.Timestamp})
-		row.Cells = append(row.Cells, GoogleChartsCell{Value: tp.ArrayPower})
-		row.Cells = append(row.Cells, GoogleChartsCell{Value: tp.LoadPower})
-		table.Rows = append(table.Rows, row)
-	}
-
-	log.Printf("table: %v", time.Since(start).String())
-	start = time.Now()
-
-	b, err = json.Marshal(table)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		log.Println(err)
-		return
-	}
-
-	log.Printf("marshal: %v", time.Since(start).String())
-
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	fmt.Fprint(w, string(b))
-}*/
 
 func openDB() {
 	var err error
@@ -537,32 +464,42 @@ func round(f float64) int32 {
 	return int32(f + math.Copysign(0.5, f))
 }
 
-func avg(end time.Time, interval int64) (ts []gotracer.TracerStatus, err error) {
+func avg(end time.Time, minuteInterval int64) (ts []gotracer.TracerStatus, err error) {
 	now := time.Now().UTC()
+
+	// Minimum number of samples allowed to calculate an average. Below this
+	// we consider values as missing.
+	var minSamples int64 = int64(float32(minuteInterval) * float32(12) * 0.9)
 	var i time.Time = end
 	for i.Before(now) {
 		var its []gotracer.TracerStatus
-		its, err = load(i, i.Add(time.Minute*time.Duration(interval)))
+		its, err = load(i, i.Add(time.Minute*time.Duration(minuteInterval)))
 		if err != nil {
 			return
 		}
 		var t gotracer.TracerStatus
-		for _, s := range its {
-			t.ArrayCurrent += s.ArrayCurrent
-			t.ArrayPower += s.ArrayPower
-			t.ArrayVoltage += s.ArrayVoltage
-			t.BatteryCurrent += s.BatteryCurrent
-			t.BatterySOC += s.BatterySOC
-			t.BatteryTemp += s.BatteryTemp
-			t.BatteryVoltage += s.BatteryVoltage
-			t.LoadCurrent += s.LoadCurrent
-			t.LoadPower += s.LoadPower
-			t.LoadVoltage += s.LoadVoltage
-			t.DeviceTemp += s.DeviceTemp
-		}
-		t.Timestamp = i.Add(time.Minute * time.Duration(interval/2))
+
+		// Set timestamp to middle of the sample interval
+		t.Timestamp = i.Add(time.Minute * time.Duration(minuteInterval/2))
+
+		// Convert to Unix timestamp
 		t.Timestamp = time.Unix(t.Timestamp.Unix(), 0)
-		if len(its) > 0 {
+
+		// Only calculate average if there is a minimum of samples
+		if int64(len(its)) > minSamples {
+			for _, s := range its {
+				t.ArrayCurrent += s.ArrayCurrent
+				t.ArrayPower += s.ArrayPower
+				t.ArrayVoltage += s.ArrayVoltage
+				t.BatteryCurrent += s.BatteryCurrent
+				t.BatterySOC += s.BatterySOC
+				t.BatteryTemp += s.BatteryTemp
+				t.BatteryVoltage += s.BatteryVoltage
+				t.LoadCurrent += s.LoadCurrent
+				t.LoadPower += s.LoadPower
+				t.LoadVoltage += s.LoadVoltage
+				t.DeviceTemp += s.DeviceTemp
+			}
 			t.ArrayCurrent = t.ArrayCurrent / float32(len(its))
 			t.ArrayPower = t.ArrayPower / float32(len(its))
 			t.ArrayVoltage = t.ArrayVoltage / float32(len(its))
@@ -574,10 +511,39 @@ func avg(end time.Time, interval int64) (ts []gotracer.TracerStatus, err error) 
 			t.LoadPower = t.LoadPower / float32(len(its))
 			t.LoadVoltage = t.LoadVoltage / float32(len(its))
 			t.DeviceTemp = t.DeviceTemp / float32(len(its))
+		} else {
+			t.ArrayPower = -1
 		}
 		ts = append(ts, t)
-		i = i.Add(time.Minute * time.Duration(interval))
+		i = i.Add(time.Minute * time.Duration(minuteInterval))
 	}
+	return
+}
+
+func googleChart(ts []gotracer.TracerStatus) (chart string, err error) {
+	var table GoogleChartsDataTable
+	table.Cols = []GoogleChartsCol{GoogleChartsCol{Type: "datetime"}, GoogleChartsCol{Type: "number", Label: "Solpanel"}, GoogleChartsCol{Type: "number", Label: "Förbrukning"}}
+
+	for _, tp := range ts {
+		var row GoogleChartsRow
+		if tp.ArrayPower == -1 {
+			row.Cells = append(row.Cells, GoogleChartsCell{Value: tp.Timestamp})
+			row.Cells = append(row.Cells, GoogleChartsCell{Value: nil})
+			row.Cells = append(row.Cells, GoogleChartsCell{Value: nil})
+		} else {
+			row.Cells = append(row.Cells, GoogleChartsCell{Value: tp.Timestamp})
+			row.Cells = append(row.Cells, GoogleChartsCell{Value: tp.ArrayPower})
+			row.Cells = append(row.Cells, GoogleChartsCell{Value: tp.LoadPower})
+		}
+		table.Rows = append(table.Rows, row)
+	}
+
+	var b []byte
+	b, err = json.Marshal(table)
+	if err != nil {
+		return
+	}
+	chart = string(b)
 	return
 }
 
@@ -590,23 +556,10 @@ func updateDailyCache() error {
 		return err
 	}
 
-	var table GoogleChartsDataTable
-	table.Cols = []GoogleChartsCol{GoogleChartsCol{Type: "datetime"}, GoogleChartsCol{Type: "number", Label: "Solpanel"}, GoogleChartsCol{Type: "number", Label: "Förbrukning"}}
-
-	for _, tp := range ts {
-		var row GoogleChartsRow
-		row.Cells = append(row.Cells, GoogleChartsCell{Value: tp.Timestamp})
-		row.Cells = append(row.Cells, GoogleChartsCell{Value: tp.ArrayPower})
-		row.Cells = append(row.Cells, GoogleChartsCell{Value: tp.LoadPower})
-		table.Rows = append(table.Rows, row)
-	}
-
-	var b []byte
-	b, err = json.Marshal(table)
+	dailyCache, err = googleChart(ts)
 	if err != nil {
 		return err
 	}
-	dailyCache = string(b)
 
 	log.Printf("updated daily cache in %v", time.Since(start))
 
@@ -622,23 +575,10 @@ func updateWeeklyCache() error {
 		return err
 	}
 
-	var table GoogleChartsDataTable
-	table.Cols = []GoogleChartsCol{GoogleChartsCol{Type: "datetime"}, GoogleChartsCol{Type: "number", Label: "Solpanel"}, GoogleChartsCol{Type: "number", Label: "Förbrukning"}}
-
-	for _, tp := range ts {
-		var row GoogleChartsRow
-		row.Cells = append(row.Cells, GoogleChartsCell{Value: tp.Timestamp})
-		row.Cells = append(row.Cells, GoogleChartsCell{Value: tp.ArrayPower})
-		row.Cells = append(row.Cells, GoogleChartsCell{Value: tp.LoadPower})
-		table.Rows = append(table.Rows, row)
-	}
-
-	var b []byte
-	b, err = json.Marshal(table)
+	weeklyCache, err = googleChart(ts)
 	if err != nil {
 		return err
 	}
-	weeklyCache = string(b)
 
 	log.Printf("updated weekly cache in %v", time.Since(start))
 
@@ -654,23 +594,10 @@ func updateMonthlyCache() error {
 		return err
 	}
 
-	var table GoogleChartsDataTable
-	table.Cols = []GoogleChartsCol{GoogleChartsCol{Type: "datetime"}, GoogleChartsCol{Type: "number", Label: "Solpanel"}, GoogleChartsCol{Type: "number", Label: "Förbrukning"}}
-
-	for _, tp := range ts {
-		var row GoogleChartsRow
-		row.Cells = append(row.Cells, GoogleChartsCell{Value: tp.Timestamp})
-		row.Cells = append(row.Cells, GoogleChartsCell{Value: tp.ArrayPower})
-		row.Cells = append(row.Cells, GoogleChartsCell{Value: tp.LoadPower})
-		table.Rows = append(table.Rows, row)
-	}
-
-	var b []byte
-	b, err = json.Marshal(table)
+	monthlyCache, err = googleChart(ts)
 	if err != nil {
 		return err
 	}
-	monthlyCache = string(b)
 
 	log.Printf("updated monthly cache in %v", time.Since(start))
 
@@ -686,23 +613,10 @@ func updateAnnualCache() error {
 		return err
 	}
 
-	var table GoogleChartsDataTable
-	table.Cols = []GoogleChartsCol{GoogleChartsCol{Type: "datetime"}, GoogleChartsCol{Type: "number", Label: "Solpanel"}, GoogleChartsCol{Type: "number", Label: "Förbrukning"}}
-
-	for _, tp := range ts {
-		var row GoogleChartsRow
-		row.Cells = append(row.Cells, GoogleChartsCell{Value: tp.Timestamp})
-		row.Cells = append(row.Cells, GoogleChartsCell{Value: tp.ArrayPower})
-		row.Cells = append(row.Cells, GoogleChartsCell{Value: tp.LoadPower})
-		table.Rows = append(table.Rows, row)
-	}
-
-	var b []byte
-	b, err = json.Marshal(table)
+	annualCache, err = googleChart(ts)
 	if err != nil {
 		return err
 	}
-	annualCache = string(b)
 
 	log.Printf("updated annual cache in %v", time.Since(start))
 
