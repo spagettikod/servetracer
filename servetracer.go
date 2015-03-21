@@ -260,8 +260,8 @@ const (
 
 		    window.setInterval(loadCurrent, 5 * SECOND);
 		    window.setInterval(loadDaily, 10 * MINUTE);
-		    window.setInterval(loadWeekly, HOUR);
-		    window.setInterval(loadMonthly, 6 * HOUR);
+		    window.setInterval(loadWeekly, 30 * MINUTE);
+		    window.setInterval(loadMonthly, 3 * HOUR);
 		    window.setInterval(loadAnnual, DAY);
 		}
 
@@ -502,7 +502,7 @@ func avg(end time.Time, minuteInterval int64) (ts []gotracer.TracerStatus, err e
 
 	// Minimum number of samples allowed to calculate an average. Below this
 	// we consider values as missing.
-	var minSamples int64 = int64(float32(minuteInterval) * float32(12) * 0.9)
+	var minSamples int64 = int64(float32(minuteInterval) * float32(12) * 0.75)
 	var i time.Time = end
 	for i.Before(now) {
 		var its []gotracer.TracerStatus
@@ -603,7 +603,7 @@ func updateWeeklyCache() error {
 	start := time.Now()
 	end := time.Now().UTC().Add(time.Hour * -24 * 7)
 
-	ts, err := avg(end, 60)
+	ts, err := avg(end, 30)
 	if err != nil {
 		return err
 	}
@@ -622,7 +622,7 @@ func updateMonthlyCache() error {
 	start := time.Now()
 	end := time.Now().UTC().Add(time.Hour * -24 * 30)
 
-	ts, err := avg(end, 360)
+	ts, err := avg(end, 180)
 	if err != nil {
 		return err
 	}
@@ -675,7 +675,7 @@ func weeklyDaemon() {
 	if err != nil {
 		log.Printf("weekly failed: %v", err)
 	}
-	c := time.Tick(1 * time.Hour)
+	c := time.Tick(30 * time.Minute)
 	for _ = range c {
 		err = updateWeeklyCache()
 		if err != nil {
@@ -689,7 +689,7 @@ func monthlyDaemon() {
 	if err != nil {
 		log.Printf("monthly failed: %v", err)
 	}
-	c := time.Tick(6 * time.Hour)
+	c := time.Tick(3 * time.Hour)
 	for _ = range c {
 		err = updateMonthlyCache()
 		if err != nil {
