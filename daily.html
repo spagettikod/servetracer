@@ -31,7 +31,7 @@
 	<div class="col-sm-6 col-md-3">
 		<div class="well" style="width: 15em; margin: auto; margin-top: 2em;">
 			<span class="h3 text-nowrap"><small>Total effekt idag</small></span>
-			<div class="h1 text-center text-nowrap" id="ecd"></div>
+			<div class="h1 text-center text-nowrap" id="egd"></div>
 		</div>
 	</div>
 	<div class="center-block" style="text-align: center; width: 100%; margin-top: 4em; display: inline-block;">
@@ -45,19 +45,22 @@
 	<div style="display: inline-block; width: 100%;">
 		<div style="margin-top: 1em; text-align: center;">
 			<div id="chart"></div>
-			<!--div id="loading"><i class="fa fa-spinner fa-spin fa-3x" style="margin-top: 2em;"></i></div-->
 		</div>
 	</div>
 
 	<script>
 		google.load('visualization', '1', {packages: ['corechart']});
 
-		var host = "http://localhost:8080"
-		//var host = ""
+		//var host = "http://10.0.1.199:8080"
+		var host = ""
 		var dailyData;
 		var weeklyData;
 		var monthlyData;
 		var annualData;
+		var SECOND = 1000;
+		var MINUTE = 60 * SECOND;
+		var HOUR = 60 * MINUTE;
+		var DAY = 24 * HOUR;
 
 		var dailyChartOptions = {
 			subtitle: "Idag",
@@ -207,20 +210,23 @@
 		    	drawChart(annualData, annualChartOptions);
 		    });
 
-		    window.setInterval(loadCurrent, 5000);
-		    window.setInterval(loadDaily, 600000);
-		    window.setInterval(loadMonthly, 21600000);
-		    window.setInterval(loadAnnual, 86400000);
+		    window.setInterval(loadCurrent, 5 * SECOND);
+		    window.setInterval(loadDaily, 10 * MINUTE);
+		    window.setInterval(loadWeekly, HOUR);
+		    window.setInterval(loadMonthly, 6 * HOUR);
+		    window.setInterval(loadAnnual, DAY);
 		}
 
 		function loadCurrent() {
-			$.get(host + "/now").
-				done(function(data){
+			$.ajax({
+				url: host + "/now",
+				cache: false
+			}).done(function(data){
 					var status = JSON.parse(data);
 					$("#bsoc").html(status.bsoc + "%");
 					$("#pvp").html(status.pvp.toFixed(2) + " W");
 					$("#lp").html(status.lp.toFixed(2) + " W");
-					$("#ecd").html(status.ecd.toFixed(2) + " kWh");
+					$("#egd").html(status.egd.toFixed(2) + " kWh");
 				}).
 				fail(function() {
 					console.log("Failed");
@@ -243,11 +249,16 @@
 		}
 
 	    function loadDaily() {
-	    	$.get(host + "/day").
-	    		done(function(data) {
+	    	$.ajax({
+				url: host + "/day",
+				cache: false
+			}).done(function(data) {
 	    			dailyData = process(data);
 	    			if($(".btn-day").hasClass("active")) {
+	    				console.log("daily selected");
 	    				drawChart(dailyData, dailyChartOptions);
+	    			} else {
+	    				console.log("daily not selected");
 	    			}
 	    		}).
 	    		fail(function(){
@@ -256,8 +267,10 @@
 	    }
 
 	    function loadWeekly() {
-	    	$.get(host + "/week").
-	    		done(function(data) {
+			$.ajax({
+				url: host + "/week",
+				cache: false
+			}).done(function(data) {
 	    			weeklyData = process(data);
 	    			if($(".btn-week").hasClass("active")) {
 	    				drawChart(weeklyData, weeklyChartOptions);
@@ -269,8 +282,10 @@
 	    }
 
 	    function loadMonthly() {
-	    	$.get(host + "/month").
-	    		done(function(data) {
+	    	$.ajax({
+				url: host + "/month",
+				cache: false
+			}).done(function(data) {
 	    			monthlyData = process(data);
 	    			if($(".btn-month").hasClass("active")) {
 	    				drawChart(monthlyData, monthlyChartOptions);
@@ -282,8 +297,10 @@
 	    }
 
 	    function loadAnnual() {
-	    	$.get(host + "/annual").
-	    		done(function(data) {
+	    	$.ajax({
+				url: host + "/annual",
+				cache: false
+			}).done(function(data) {
 	    			annualData = process(data);
 	    			if($(".btn-annual").hasClass("active")) {
 	    				drawChart(annualData, annualChartOptions);
