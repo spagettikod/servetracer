@@ -555,7 +555,7 @@ func avg(end time.Time, minuteInterval int64) (ts []gotracer.TracerStatus, err e
 
 func googleChart(ts []gotracer.TracerStatus) (chart string, err error) {
 	var table GoogleChartsDataTable
-	table.Cols = []GoogleChartsCol{GoogleChartsCol{Type: "datetime"}, GoogleChartsCol{Type: "number", Label: "Solpanel"}, GoogleChartsCol{Type: "number", Label: "Förbrukning"}}
+	table.Cols = []GoogleChartsCol{GoogleChartsCol{Type: "datetime"}, GoogleChartsCol{Type: "number", Label: "Solar panel"}, GoogleChartsCol{Type: "number", Label: "Load"}}
 
 	for _, tp := range ts {
 		var row GoogleChartsRow
