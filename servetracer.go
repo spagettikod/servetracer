@@ -42,35 +42,35 @@ const (
 </head>
 <body>
 	<div class="col-sm-6 col-md-3">
-		<div class="well" style="width: 15em; margin: auto; margin-top: 2em;">
-			<span class="h3 text-nowrap"><small>Batteri</small></span>
+		<div class="well" style="width: 17em; margin: auto; margin-top: 2em;">
+			<span class="h3 text-nowrap"><small>Battery charge</small></span>
 			<div class="h1 text-center text-nowrap" id="bsoc"></div>		
 		</div>
 	</div>
 	<div class="col-sm-6 col-md-3">
-		<div class="well" style="width: 15em; margin: auto; margin-top: 2em;">
-			<span class="h3 text-nowrap"><small>Solpanel</small></span>
+		<div class="well" style="width: 17em; margin: auto; margin-top: 2em;">
+			<span class="h3 text-nowrap"><small>Solar panel</small></span>
 			<div class="h1 text-center text-nowrap" id="pvp"></div>
 		</div>
 	</div>
 	<div class="col-sm-6 col-md-3">
-		<div class="well" style="width: 15em; margin: auto; margin-top: 2em;">
-			<span class="h3 text-nowrap"><small>Förbrukning</small></span>
+		<div class="well" style="width: 17em; margin: auto; margin-top: 2em;">
+			<span class="h3 text-nowrap"><small>Load</small></span>
 			<div class="h1 text-center text-nowrap" id="lp"></div>
 		</div>
 	</div>
 	<div class="col-sm-6 col-md-3">
-		<div class="well" style="width: 15em; margin: auto; margin-top: 2em;">
-			<span class="h3 text-nowrap"><small>Total effekt idag</small></span>
+		<div class="well" style="width: 17em; margin: auto; margin-top: 2em;">
+			<span class="h3 text-nowrap"><small>Total energy generated today</small></span>
 			<div class="h1 text-center text-nowrap" id="egd"></div>
 		</div>
 	</div>
 	<div class="center-block" style="text-align: center; width: 100%; margin-top: 4em; display: inline-block;">
 		<div class="btn-group" role="group">
-			<button type="button" class="btn btn-default btn-day">Dag</button>
-			<button type="button" class="btn btn-default btn-week">Vecka</button>
-			<button type="button" class="btn btn-default btn-month">Månad</button>
-			<button type="button" class="btn btn-default btn-year">År</button>
+			<button type="button" class="btn btn-default btn-day">Day</button>
+			<button type="button" class="btn btn-default btn-week">Week</button>
+			<button type="button" class="btn btn-default btn-month">Month</button>
+			<button type="button" class="btn btn-default btn-year">Year</button>
 		</div>
 	</div>
 	<div style="display: inline-block; width: 100%;">
@@ -83,6 +83,7 @@ const (
 		google.load('visualization', '1', {packages: ['corechart']});
 
 		//var host = "http://10.0.1.199:8080"
+		//var host = "http://localhost:8080"
 		var host = ""
 		var dailyData;
 		var weeklyData;
@@ -223,22 +224,38 @@ const (
 		    $("button.btn-day").click(function(event) {
 		    	$(".btn").removeClass("active");
 		    	$(".btn-day").addClass("active");
-		    	drawChart(dailyData, dailyChartOptions);
+		    	if(dailyData == null) {
+		    		loadDaily();
+		    	} else {
+		    		drawChart(dailyData, dailyChartOptions);
+		    	}
 		    });
 		    $("button.btn-week").click(function() {
 		    	$(".btn").removeClass("active");
 		    	$(".btn-week").addClass("active");
-		    	drawChart(weeklyData, weeklyChartOptions);
+		    	if(weeklyData == null) {
+		    		loadWeekly();
+		    	} else {
+		    		drawChart(weeklyData, weeklyChartOptions);
+		    	}
 		    });
 		    $("button.btn-month").click(function() {
 		    	$(".btn").removeClass("active");
 		    	$(".btn-month").addClass("active");
-		    	drawChart(monthlyData, monthlyChartOptions);
+		    	if(monthlyData == null) {
+		    		loadMonthly();
+		    	} else {
+		    		drawChart(monthlyData, monthlyChartOptions);
+		    	}
 		    });
 		    $("button.btn-year").click(function() {
 		    	$(".btn").removeClass("active");
 		    	$(".btn-year").addClass("active");
-		    	drawChart(annualData, annualChartOptions);
+		    	if(annualData == null) {
+		    		loadAnnual();
+		    	} else {
+		    		drawChart(annualData, annualChartOptions);
+		    	}
 		    });
 
 		    window.setInterval(loadCurrent, 5 * SECOND);
@@ -284,7 +301,11 @@ const (
 				url: host + "/day",
 				cache: false
 			}).done(function(data) {
-	    			dailyData = process(data);
+					if(data == null || data.length == 0) {
+						dailyData = null;
+					} else {
+		    			dailyData = process(data);
+					}
 	    			if($(".btn-day").hasClass("active")) {
 	    				console.log("daily selected");
 	    				drawChart(dailyData, dailyChartOptions);
@@ -302,7 +323,11 @@ const (
 				url: host + "/week",
 				cache: false
 			}).done(function(data) {
-	    			weeklyData = process(data);
+					if(data == null || data.length == 0) {
+						weeklyData = null;
+					} else {
+		    			weeklyData = process(data);
+					}
 	    			if($(".btn-week").hasClass("active")) {
 	    				drawChart(weeklyData, weeklyChartOptions);
 	    			}
@@ -317,7 +342,11 @@ const (
 				url: host + "/month",
 				cache: false
 			}).done(function(data) {
-	    			monthlyData = process(data);
+					if(data == null || data.length == 0) {
+						monthlyData = null;
+					} else {
+		    			monthlyData = process(data);
+					}
 	    			if($(".btn-month").hasClass("active")) {
 	    				drawChart(monthlyData, monthlyChartOptions);
 	    			}
@@ -332,7 +361,11 @@ const (
 				url: host + "/annual",
 				cache: false
 			}).done(function(data) {
-	    			annualData = process(data);
+					if(data == null || data.length == 0) {
+						annualData = null;
+					} else {
+		    			annualData = process(data);
+					}
 	    			if($(".btn-annual").hasClass("active")) {
 	    				drawChart(annualData, annualChartOptions);
 	    			}
@@ -343,7 +376,7 @@ const (
 	    }
 
 		function drawChart(input, options) {
-			$("#chart").html('<i class="fa fa-spinner fa-spin fa-3x" style="margin-top: 2em;"></i>');
+			$("#chart").html('<h3>The server is busy generating the chart, try again in a litte while</h3>');
 			var data = new google.visualization.DataTable(input);
 
 			var formatter = new google.visualization.DateFormat({pattern: 'HH:mm'});
