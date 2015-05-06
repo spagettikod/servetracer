@@ -80,7 +80,7 @@ const (
 	<script>
 		google.load('visualization', '1', {packages: ['corechart']});
 
-		var host = "http://solar.spagettikod.se:8080"
+		var host = "http://solar.spagettikod.se"
 		var dailyData;
 		var monthlyData;
 		var annualData;
