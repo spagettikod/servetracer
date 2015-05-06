@@ -18,11 +18,10 @@ import (
 
 const (
 	SDBDomainName = "tracerlogger"
-	DailyURI      = "/day"
-	WeeklyURI     = "/week"
-	MonthlyURI    = "/month"
-	AnnualURI     = "/annual"
-	LatestURI     = "/now"
+	DailyURI      = "/data/chart/day"
+	MonthlyURI    = "/data/chart/month"
+	AnnualURI     = "/data/chart/annual"
+	LatestURI     = "/data/now"
 
 	SelectSQL   string = `SELECT timestamp, array_voltage, array_current, array_power, battery_voltage, battery_current, battery_soc, battery_temp, battery_max_volt, battery_min_volt, device_temp, load_voltage, load_current, load_power, load, consumed_day, consumed_month, consumed_year, consumed_total, generated_day, generated_month, generated_year, generated_total FROM log `
 	IntervalSQL string = SelectSQL + `WHERE timestamp BETWEEN ? AND ? ORDER BY timestamp ASC;`
@@ -68,7 +67,6 @@ const (
 	<div class="center-block" style="text-align: center; width: 100%; margin-top: 4em; display: inline-block;">
 		<div class="btn-group" role="group">
 			<button type="button" class="btn btn-default btn-day">Day</button>
-			<button type="button" class="btn btn-default btn-week">Week</button>
 			<button type="button" class="btn btn-default btn-month">Month</button>
 			<button type="button" class="btn btn-default btn-year">Year</button>
 		</div>
@@ -83,10 +81,9 @@ const (
 		google.load('visualization', '1', {packages: ['corechart']});
 
 		//var host = "http://10.0.1.199:8080"
-		//var host = "http://localhost:8080"
-		var host = ""
+		var host = "http://localhost:8080"
+		//var host = ""
 		var dailyData;
-		var weeklyData;
 		var monthlyData;
 		var annualData;
 		var SECOND = 1000;
@@ -124,38 +121,8 @@ const (
 			}
 		};
 
-		var weeklyChartOptions = {
-			subtitle: "Vecka",
-			curveType: 'function',
-			height: 400,
-			legend: {
-				position: "bottom"
-			},
-			hAxis: {
-				title: "",
-				format: "cccc",
-				viewWindow: {
-					min: moment().subtract(7, 'days').toDate(),
-					max: moment().toDate()
-				},
-				gridlines: {
-					count: 7
-				},
-			},
-			vAxis: {
-				title: "Watt",
-				viewWindow: {
-					min: 0,
-					max: 80
-				},
-				gridlines: {
-					count: 10,
-				}
-			}
-		};
-
 		var monthlyChartOptions = {
-			subtitle: "Månad",
+			subtitle: "Month",
 			curveType: 'function',
 			height: 400,
 			legend: {
@@ -173,19 +140,15 @@ const (
 				},
 			},
 			vAxis: {
-				title: "Watt",
+				title: "kWh",
 				viewWindow: {
-					min: 0,
-					max: 80
-				},
-				gridlines: {
-					count: 10,
+					min: 0
 				}
 			}
 		};
 
 		var annualChartOptions = {
-			subtitle: "År",
+			subtitle: "Year",
 			curveType: 'function',
 			height: 400,
 			legend: {
@@ -193,7 +156,7 @@ const (
 			},
 			hAxis: {
 				title: "",
-				format: "MMMM",
+				format: "MMM",
 				viewWindow: {
 					min: moment().subtract(365, 'days').toDate(),
 					max: moment().toDate()
@@ -203,23 +166,17 @@ const (
 				},
 			},
 			vAxis: {
-				title: "Watt",
+				title: "kWh",
 				viewWindow: {
-					min: 0,
-					max: 80
-				},
-				gridlines: {
-					count: 10,
+					min: 0
 				}
 			}
 		};
 
 		function init() {
 			$(".btn-day").addClass("active");
+			loadMonth();
 			loadDaily();
-			loadWeekly();
-			loadMonthly();
-			loadAnnual();
 			loadCurrent();
 		    $("button.btn-day").click(function(event) {
 		    	$(".btn").removeClass("active");
@@ -230,20 +187,11 @@ const (
 		    		drawChart(dailyData, dailyChartOptions);
 		    	}
 		    });
-		    $("button.btn-week").click(function() {
-		    	$(".btn").removeClass("active");
-		    	$(".btn-week").addClass("active");
-		    	if(weeklyData == null) {
-		    		loadWeekly();
-		    	} else {
-		    		drawChart(weeklyData, weeklyChartOptions);
-		    	}
-		    });
 		    $("button.btn-month").click(function() {
 		    	$(".btn").removeClass("active");
 		    	$(".btn-month").addClass("active");
 		    	if(monthlyData == null) {
-		    		loadMonthly();
+		    		loadMonth();
 		    	} else {
 		    		drawChart(monthlyData, monthlyChartOptions);
 		    	}
@@ -260,14 +208,12 @@ const (
 
 		    window.setInterval(loadCurrent, 5 * SECOND);
 		    window.setInterval(loadDaily, 10 * MINUTE);
-		    window.setInterval(loadWeekly, 30 * MINUTE);
-		    window.setInterval(loadMonthly, 3 * HOUR);
-		    window.setInterval(loadAnnual, DAY);
+		    window.setInterval(loadMonth, DAY);
 		}
 
 		function loadCurrent() {
 			$.ajax({
-				url: host + "/now",
+				url: host + "/data/now",
 				cache: false
 			}).done(function(data){
 					var status = JSON.parse(data);
@@ -298,16 +244,18 @@ const (
 
 	    function loadDaily() {
 	    	$.ajax({
-				url: host + "/day",
+				url: host + "/data/chart/day",
 				cache: false
 			}).done(function(data) {
 					if(data == null || data.length == 0) {
 						dailyData = null;
 					} else {
 		    			dailyData = process(data);
+						dailyData = new google.visualization.DataTable(dailyData);
+						var formatter = new google.visualization.DateFormat({pattern: 'HH:mm'});
+						formatter.format(dailyData, 0);
 					}
 	    			if($(".btn-day").hasClass("active")) {
-	    				console.log("daily selected");
 	    				drawChart(dailyData, dailyChartOptions);
 	    			} else {
 	    				console.log("daily not selected");
@@ -318,34 +266,19 @@ const (
 	    		});
 	    }
 
-	    function loadWeekly() {
-			$.ajax({
-				url: host + "/week",
-				cache: false
-			}).done(function(data) {
-					if(data == null || data.length == 0) {
-						weeklyData = null;
-					} else {
-		    			weeklyData = process(data);
-					}
-	    			if($(".btn-week").hasClass("active")) {
-	    				drawChart(weeklyData, weeklyChartOptions);
-	    			}
-	    		}).
-	    		fail(function(){
-	    			console.log("weekly failed");
-	    		});
-	    }
-
-	    function loadMonthly() {
+	    function loadMonth() {
 	    	$.ajax({
-				url: host + "/month",
+				url: host + "/data/chart/month",
 				cache: false
 			}).done(function(data) {
+					console.log("done");
 					if(data == null || data.length == 0) {
 						monthlyData = null;
 					} else {
 		    			monthlyData = process(data);
+						monthlyData = new google.visualization.DataTable(monthlyData);
+						var formatter = new google.visualization.DateFormat({pattern: 'yyyy-MM-dd'});
+						formatter.format(monthlyData, 0);
 					}
 	    			if($(".btn-month").hasClass("active")) {
 	    				drawChart(monthlyData, monthlyChartOptions);
@@ -358,15 +291,21 @@ const (
 
 	    function loadAnnual() {
 	    	$.ajax({
-				url: host + "/annual",
+				url: host + "/data/chart/annual",
 				cache: false
 			}).done(function(data) {
+					console.log("done");
 					if(data == null || data.length == 0) {
 						annualData = null;
 					} else {
 		    			annualData = process(data);
+						annualData = new google.visualization.DataTable(annualData);
+						var formatter = new google.visualization.NumberFormat({fractionDigits: 2});
+						formatter.format(annualData, 1);
+						var formatter = new google.visualization.DateFormat({pattern: 'yyyy-MM-dd'});
+						formatter.format(annualData, 0);
 					}
-	    			if($(".btn-annual").hasClass("active")) {
+	    			if($(".btn-year").hasClass("active")) {
 	    				drawChart(annualData, annualChartOptions);
 	    			}
 	    		}).
@@ -375,15 +314,11 @@ const (
 	    		});
 	    }
 
-		function drawChart(input, options) {
+
+		function drawChart(data, options) {
 			$("#chart").html('<h3>The server is busy generating the chart, try again in a litte while</h3>');
-			var data = new google.visualization.DataTable(input);
 
-			var formatter = new google.visualization.DateFormat({pattern: 'HH:mm'});
-			formatter.format(data, 0);
-			
 			var chart = new google.visualization.LineChart(document.getElementById('chart'));
-
 
 			chart.draw(data, options);
 	    }
@@ -555,7 +490,7 @@ func avg(end time.Time, minuteInterval int64) (ts []gotracer.TracerStatus, err e
 
 func googleChart(ts []gotracer.TracerStatus) (chart string, err error) {
 	var table GoogleChartsDataTable
-	table.Cols = []GoogleChartsCol{GoogleChartsCol{Type: "datetime"}, GoogleChartsCol{Type: "number", Label: "Solar panel"}, GoogleChartsCol{Type: "number", Label: "Load"}}
+	table.Cols = []GoogleChartsCol{GoogleChartsCol{Type: "datetime"}, GoogleChartsCol{Type: "number", Label: "Generated"}, GoogleChartsCol{Type: "number", Label: "Consumed"}}
 
 	for _, tp := range ts {
 		var row GoogleChartsRow
@@ -567,6 +502,33 @@ func googleChart(ts []gotracer.TracerStatus) (chart string, err error) {
 			row.Cells = append(row.Cells, GoogleChartsCell{Value: tp.Timestamp})
 			row.Cells = append(row.Cells, GoogleChartsCell{Value: tp.ArrayPower})
 			row.Cells = append(row.Cells, GoogleChartsCell{Value: tp.LoadPower})
+		}
+		table.Rows = append(table.Rows, row)
+	}
+
+	var b []byte
+	b, err = json.Marshal(table)
+	if err != nil {
+		return
+	}
+	chart = string(b)
+	return
+}
+
+func googleKWHChart(ts []gotracer.TracerStatus) (chart string, err error) {
+	var table GoogleChartsDataTable
+	table.Cols = []GoogleChartsCol{GoogleChartsCol{Type: "date"}, GoogleChartsCol{Type: "number", Label: "Generated"}, GoogleChartsCol{Type: "number", Label: "Consumed"}}
+
+	for _, tp := range ts {
+		var row GoogleChartsRow
+		if tp.ArrayPower == -1 {
+			row.Cells = append(row.Cells, GoogleChartsCell{Value: tp.Timestamp})
+			row.Cells = append(row.Cells, GoogleChartsCell{Value: nil})
+			row.Cells = append(row.Cells, GoogleChartsCell{Value: nil})
+		} else {
+			row.Cells = append(row.Cells, GoogleChartsCell{Value: tp.Timestamp})
+			row.Cells = append(row.Cells, GoogleChartsCell{Value: tp.EnergyGeneratedDaily})
+			row.Cells = append(row.Cells, GoogleChartsCell{Value: tp.EnergyConsumedDaily})
 		}
 		table.Rows = append(table.Rows, row)
 	}
@@ -618,42 +580,83 @@ func updateWeeklyCache() error {
 	return nil
 }
 
-func updateMonthlyCache() error {
-	start := time.Now()
-	end := time.Now().UTC().Add(time.Hour * -24 * 30)
-
-	ts, err := avg(end, 180)
-	if err != nil {
-		return err
-	}
-
-	monthlyCache, err = googleChart(ts)
-	if err != nil {
-		return err
-	}
-
-	log.Printf("updated monthly cache in %v", time.Since(start))
-
-	return nil
-}
-
 func updateAnnualCache() error {
 	start := time.Now()
-	end := time.Now().UTC().Add(time.Hour * -24 * 365)
 
-	ts, err := avg(end, 1440)
+	rows, err := db.Query("SELECT timestamp, MAX(generated_day), MAX(consumed_day) FROM log GROUP BY DATE(timestamp) ORDER BY timestamp")
 	if err != nil {
 		return err
 	}
+	defer rows.Close()
 
-	annualCache, err = googleChart(ts)
+	var ts []gotracer.TracerStatus
+	for rows.Next() {
+		var t gotracer.TracerStatus
+		if err = rows.Scan(&t.Timestamp, &t.EnergyGeneratedDaily, &t.EnergyConsumedDaily); err != nil {
+			return err
+		}
+		t.Timestamp = time.Unix(t.Timestamp.Unix(), 0)
+		ts = append(ts, t)
+	}
+
+	var c int32 = 0
+	var gen float32 = 0
+	var con float32 = 0
+	var ts2 []gotracer.TracerStatus
+	for _, t := range ts {
+		if t.Timestamp.Weekday() == time.Sunday {
+			gen = gen / float32(c)
+			con = con / float32(c)
+			t.EnergyGeneratedDaily = gen
+			t.EnergyConsumedDaily = con
+			ts2 = append(ts2, t)
+			c = 0
+			gen = 0
+			con = 0
+		} else {
+			gen += t.EnergyGeneratedDaily
+			con += t.EnergyConsumedDaily
+			c++
+		}
+	}
+
+	annualCache, err = googleKWHChart(ts2)
 	if err != nil {
 		return err
 	}
 
 	log.Printf("updated annual cache in %v", time.Since(start))
 
-	return nil
+	return err
+}
+
+func updateMonthlyCache() error {
+	start := time.Now()
+
+	rows, err := db.Query("SELECT timestamp, MAX(generated_day), MAX(consumed_day) FROM log GROUP BY DATE(timestamp) ORDER BY timestamp")
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	var ts []gotracer.TracerStatus
+	for rows.Next() {
+		var t gotracer.TracerStatus
+		if err = rows.Scan(&t.Timestamp, &t.EnergyGeneratedDaily, &t.EnergyConsumedDaily); err != nil {
+			return err
+		}
+		t.Timestamp = time.Unix(t.Timestamp.Unix(), 0)
+		ts = append(ts, t)
+	}
+
+	monthlyCache, err = googleKWHChart(ts)
+	if err != nil {
+		return err
+	}
+
+	log.Printf("updated monthly cache in %v", time.Since(start))
+
+	return err
 }
 
 func dailyDaemon() {
@@ -670,30 +673,16 @@ func dailyDaemon() {
 	}
 }
 
-func weeklyDaemon() {
-	err := updateWeeklyCache()
-	if err != nil {
-		log.Printf("weekly failed: %v", err)
-	}
-	c := time.Tick(30 * time.Minute)
-	for _ = range c {
-		err = updateWeeklyCache()
-		if err != nil {
-			log.Printf("weekly failed: %v", err)
-		}
-	}
-}
-
 func monthlyDaemon() {
 	err := updateMonthlyCache()
 	if err != nil {
-		log.Printf("monthly failed: %v", err)
+		log.Printf("updateMonthlyCache failed: %v", err)
 	}
-	c := time.Tick(3 * time.Hour)
+	c := time.Tick(24 * time.Hour)
 	for _ = range c {
 		err = updateMonthlyCache()
 		if err != nil {
-			log.Printf("monthly failed: %v", err)
+			log.Printf("updateMonthlyCache failed: %v", err)
 		}
 	}
 }
@@ -701,13 +690,13 @@ func monthlyDaemon() {
 func annualDaemon() {
 	err := updateAnnualCache()
 	if err != nil {
-		log.Printf("annual failed: %v", err)
+		log.Printf("updateAnnualCache failed: %v", err)
 	}
-	c := time.Tick(24 * time.Hour)
+	c := time.Tick(168 * time.Hour)
 	for _ = range c {
 		err = updateAnnualCache()
 		if err != nil {
-			log.Printf("annual failed: %v", err)
+			log.Printf("updateAnnualCache failed: %v", err)
 		}
 	}
 }
@@ -734,13 +723,6 @@ func DailyHandler(w http.ResponseWriter, req *http.Request) {
 	corsHeaders(w)
 
 	fmt.Fprint(w, dailyCache)
-}
-
-func WeeklyHandler(w http.ResponseWriter, req *http.Request) {
-	logAccess(req)
-	corsHeaders(w)
-
-	fmt.Fprint(w, weeklyCache)
 }
 
 func MonthlyHandler(w http.ResponseWriter, req *http.Request) {
@@ -770,13 +752,11 @@ func main() {
 	}
 	openDB()
 	go dailyDaemon()
-	go weeklyDaemon()
 	go monthlyDaemon()
 	go annualDaemon()
 	http.HandleFunc("/", IndexHandler)
 	http.HandleFunc(LatestURI, LatestHandler)
 	http.HandleFunc(DailyURI, DailyHandler)
-	http.HandleFunc(WeeklyURI, WeeklyHandler)
 	http.HandleFunc(MonthlyURI, MonthlyHandler)
 	http.HandleFunc(AnnualURI, AnnualHandler)
 	err := http.ListenAndServe(":"+port, nil)

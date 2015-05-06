@@ -37,7 +37,6 @@
 	<div class="center-block" style="text-align: center; width: 100%; margin-top: 4em; display: inline-block;">
 		<div class="btn-group" role="group">
 			<button type="button" class="btn btn-default btn-day">Day</button>
-			<button type="button" class="btn btn-default btn-week">Week</button>
 			<button type="button" class="btn btn-default btn-month">Month</button>
 			<button type="button" class="btn btn-default btn-year">Year</button>
 		</div>
@@ -55,7 +54,6 @@
 		var host = "http://localhost:8080"
 		//var host = ""
 		var dailyData;
-		var weeklyData;
 		var monthlyData;
 		var annualData;
 		var SECOND = 1000;
@@ -93,38 +91,8 @@
 			}
 		};
 
-		var weeklyChartOptions = {
-			subtitle: "Vecka",
-			curveType: 'function',
-			height: 400,
-			legend: {
-				position: "bottom"
-			},
-			hAxis: {
-				title: "",
-				format: "cccc",
-				viewWindow: {
-					min: moment().subtract(7, 'days').toDate(),
-					max: moment().toDate()
-				},
-				gridlines: {
-					count: 7
-				},
-			},
-			vAxis: {
-				title: "Watt",
-				viewWindow: {
-					min: 0,
-					max: 80
-				},
-				gridlines: {
-					count: 10,
-				}
-			}
-		};
-
 		var monthlyChartOptions = {
-			subtitle: "Månad",
+			subtitle: "Month",
 			curveType: 'function',
 			height: 400,
 			legend: {
@@ -142,19 +110,15 @@
 				},
 			},
 			vAxis: {
-				title: "Watt",
+				title: "kWh",
 				viewWindow: {
-					min: 0,
-					max: 80
-				},
-				gridlines: {
-					count: 10,
+					min: 0
 				}
 			}
 		};
 
 		var annualChartOptions = {
-			subtitle: "År",
+			subtitle: "Year",
 			curveType: 'function',
 			height: 400,
 			legend: {
@@ -162,7 +126,7 @@
 			},
 			hAxis: {
 				title: "",
-				format: "MMMM",
+				format: "MMM",
 				viewWindow: {
 					min: moment().subtract(365, 'days').toDate(),
 					max: moment().toDate()
@@ -172,23 +136,17 @@
 				},
 			},
 			vAxis: {
-				title: "Watt",
+				title: "kWh",
 				viewWindow: {
-					min: 0,
-					max: 80
-				},
-				gridlines: {
-					count: 10,
+					min: 0
 				}
 			}
 		};
 
 		function init() {
 			$(".btn-day").addClass("active");
+			loadMonth();
 			loadDaily();
-			loadWeekly();
-			loadMonthly();
-			loadAnnual();
 			loadCurrent();
 		    $("button.btn-day").click(function(event) {
 		    	$(".btn").removeClass("active");
@@ -199,20 +157,11 @@
 		    		drawChart(dailyData, dailyChartOptions);
 		    	}
 		    });
-		    $("button.btn-week").click(function() {
-		    	$(".btn").removeClass("active");
-		    	$(".btn-week").addClass("active");
-		    	if(weeklyData == null) {
-		    		loadWeekly();
-		    	} else {
-		    		drawChart(weeklyData, weeklyChartOptions);
-		    	}
-		    });
 		    $("button.btn-month").click(function() {
 		    	$(".btn").removeClass("active");
 		    	$(".btn-month").addClass("active");
 		    	if(monthlyData == null) {
-		    		loadMonthly();
+		    		loadMonth();
 		    	} else {
 		    		drawChart(monthlyData, monthlyChartOptions);
 		    	}
@@ -229,14 +178,12 @@
 
 		    window.setInterval(loadCurrent, 5 * SECOND);
 		    window.setInterval(loadDaily, 10 * MINUTE);
-		    window.setInterval(loadWeekly, 30 * MINUTE);
-		    window.setInterval(loadMonthly, 3 * HOUR);
-		    window.setInterval(loadAnnual, DAY);
+		    window.setInterval(loadMonth, DAY);
 		}
 
 		function loadCurrent() {
 			$.ajax({
-				url: host + "/now",
+				url: host + "/data/now",
 				cache: false
 			}).done(function(data){
 					var status = JSON.parse(data);
@@ -267,16 +214,18 @@
 
 	    function loadDaily() {
 	    	$.ajax({
-				url: host + "/day",
+				url: host + "/data/chart/day",
 				cache: false
 			}).done(function(data) {
 					if(data == null || data.length == 0) {
 						dailyData = null;
 					} else {
 		    			dailyData = process(data);
+						dailyData = new google.visualization.DataTable(dailyData);
+						var formatter = new google.visualization.DateFormat({pattern: 'HH:mm'});
+						formatter.format(dailyData, 0);
 					}
 	    			if($(".btn-day").hasClass("active")) {
-	    				console.log("daily selected");
 	    				drawChart(dailyData, dailyChartOptions);
 	    			} else {
 	    				console.log("daily not selected");
@@ -287,34 +236,19 @@
 	    		});
 	    }
 
-	    function loadWeekly() {
-			$.ajax({
-				url: host + "/week",
-				cache: false
-			}).done(function(data) {
-					if(data == null || data.length == 0) {
-						weeklyData = null;
-					} else {
-		    			weeklyData = process(data);
-					}
-	    			if($(".btn-week").hasClass("active")) {
-	    				drawChart(weeklyData, weeklyChartOptions);
-	    			}
-	    		}).
-	    		fail(function(){
-	    			console.log("weekly failed");
-	    		});
-	    }
-
-	    function loadMonthly() {
+	    function loadMonth() {
 	    	$.ajax({
-				url: host + "/month",
+				url: host + "/data/chart/month",
 				cache: false
 			}).done(function(data) {
+					console.log("done");
 					if(data == null || data.length == 0) {
 						monthlyData = null;
 					} else {
 		    			monthlyData = process(data);
+						monthlyData = new google.visualization.DataTable(monthlyData);
+						var formatter = new google.visualization.DateFormat({pattern: 'yyyy-MM-dd'});
+						formatter.format(monthlyData, 0);
 					}
 	    			if($(".btn-month").hasClass("active")) {
 	    				drawChart(monthlyData, monthlyChartOptions);
@@ -327,15 +261,21 @@
 
 	    function loadAnnual() {
 	    	$.ajax({
-				url: host + "/annual",
+				url: host + "/data/chart/annual",
 				cache: false
 			}).done(function(data) {
+					console.log("done");
 					if(data == null || data.length == 0) {
 						annualData = null;
 					} else {
 		    			annualData = process(data);
+						annualData = new google.visualization.DataTable(annualData);
+						var formatter = new google.visualization.NumberFormat({fractionDigits: 2});
+						formatter.format(annualData, 1);
+						var formatter = new google.visualization.DateFormat({pattern: 'yyyy-MM-dd'});
+						formatter.format(annualData, 0);
 					}
-	    			if($(".btn-annual").hasClass("active")) {
+	    			if($(".btn-year").hasClass("active")) {
 	    				drawChart(annualData, annualChartOptions);
 	    			}
 	    		}).
@@ -344,15 +284,11 @@
 	    		});
 	    }
 
-		function drawChart(input, options) {
+
+		function drawChart(data, options) {
 			$("#chart").html('<h3>The server is busy generating the chart, try again in a litte while</h3>');
-			var data = new google.visualization.DataTable(input);
 
-			var formatter = new google.visualization.DateFormat({pattern: 'HH:mm'});
-			formatter.format(data, 0);
-			
 			var chart = new google.visualization.LineChart(document.getElementById('chart'));
-
 
 			chart.draw(data, options);
 	    }
